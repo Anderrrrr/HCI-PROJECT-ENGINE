@@ -43,8 +43,6 @@ canvas { pointer-events: none; }
   border: 3px solid #ff6969; text-align: center; font-size: clamp(24px, 4vw, 54px);
   font-weight: 900; line-height: 1.05; letter-spacing: .025em; text-shadow: 0 2px 0 rgba(0,0,0,.35);
 }
-.posture-alert[data-level="warning"] { color: #111; background: rgba(255, 176, 32, .94); border-color: #ffd17d; text-shadow: none; }
-
 .status-pill { position: absolute; z-index: 5; top: 16px; left: 16px; display: flex; align-items: center; gap: 8px; padding: 8px 11px; color: #fff; background: rgba(0,0,0,.75); font: 11px ui-monospace, monospace; }
 .status-pill span { width: 8px; height: 8px; border-radius: 50%; background: #aaa; }
 .status-pill[data-state="good"] span { background: var(--good); }

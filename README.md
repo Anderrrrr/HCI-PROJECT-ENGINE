@@ -24,7 +24,7 @@ Open the local URL shown in the terminal and allow camera access. On the origina
 
 ## How It Works
 
-The engine normalizes head, ear, and shoulder measurements by shoulder width. A 10-second calibration establishes the user's baseline posture and natural movement range.
+The engine normalizes head, ear, and shoulder measurements by shoulder width. A 10-second calibration establishes the user's baseline posture and natural movement range. Calibration should be performed while sitting upright and typing normally with both hands on the keyboard.
 
 See [docs/algorithm.md](docs/algorithm.md) for the current formulas, thresholds, and output format.
 

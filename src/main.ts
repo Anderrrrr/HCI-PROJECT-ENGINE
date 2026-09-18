@@ -164,7 +164,7 @@ function startCalibration() {
   calibrateButton.disabled = true;
   postureLabel.textContent = "CALIBRATING";
   scoreElement.textContent = "—";
-  updateCalibrationOverlay(0, "Face the camera and relax both shoulders");
+  updateCalibrationOverlay(0, "Sit upright and type normally with both hands on the keyboard");
   emitEngineState({ phase: "calibrating", message: "Calibration started" });
 }
 
@@ -229,7 +229,7 @@ function processLandmarks(landmarks: Landmark[] | undefined, now: number) {
   if (calibrating) {
     calibrationSamples.push(features);
     const elapsed = now - calibrationStartedAt;
-    updateCalibrationOverlay(elapsed / CALIBRATION_MS, "Hold still and breathe normally");
+    updateCalibrationOverlay(elapsed / CALIBRATION_MS, "Keep typing naturally while maintaining an upright posture");
     if (elapsed >= CALIBRATION_MS) finishCalibration();
     return;
   }
@@ -426,7 +426,13 @@ function updateDebug(features: Features) {
 function loadBaseline(): Baseline | null {
   try {
     const raw = localStorage.getItem(BASELINE_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Baseline) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Baseline>;
+    if (parsed.version !== 2) {
+      localStorage.removeItem(BASELINE_STORAGE_KEY);
+      return null;
+    }
+    return parsed as Baseline;
   } catch {
     return null;
   }

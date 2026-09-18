@@ -18,6 +18,7 @@ export type Features = {
 
 export type BaselineMetric = { median: number; mad: number };
 export type Baseline = {
+  version: 2;
   createdAt: number;
   sampleCount: number;
   features: Record<keyof Features, BaselineMetric>;
@@ -71,8 +72,11 @@ function midpoint(a: { x: number; y: number }, b: { x: number; y: number }) {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-function angleDeg(a: { x: number; y: number }, b: { x: number; y: number }) {
-  return Math.atan2(b.y - a.y, b.x - a.x) * (180 / Math.PI);
+function lineTiltDeg(a: { x: number; y: number }, b: { x: number; y: number }) {
+  // MediaPipe's anatomical left point is normally to the right of its right
+  // point in an unmirrored camera frame. Using abs(dx) avoids the +/-180°
+  // discontinuity while preserving which anatomical side is higher.
+  return Math.atan2(b.y - a.y, Math.abs(b.x - a.x)) * (180 / Math.PI);
 }
 
 export function landmarkQuality(landmarks: Landmark[]): { ok: boolean; reason: string } {
@@ -106,8 +110,8 @@ export function extractFeatures(landmarks: Landmark[], width: number, height: nu
     neckRatio: (shoulderMid.y - earMid.y) / shoulderWidth,
     neckLengthRatio: distance(shoulderMid, earMid) / shoulderWidth,
     headOffsetRatio: (earMid.x - shoulderMid.x) / shoulderWidth,
-    shoulderTiltDeg: angleDeg(leftShoulder, rightShoulder),
-    headTiltDeg: angleDeg(leftEar, rightEar),
+    shoulderTiltDeg: lineTiltDeg(leftShoulder, rightShoulder),
+    headTiltDeg: lineTiltDeg(leftEar, rightEar),
     sideAsymmetry: leftSide - rightSide,
     shoulderWidthNormalized: shoulderWidth / width,
   };
@@ -132,7 +136,7 @@ export function makeBaseline(samples: Features[]): Baseline {
       mad: median(values.map((value) => Math.abs(value - center))),
     };
   }
-  return { createdAt: Date.now(), sampleCount: samples.length, features };
+  return { version: 2, createdAt: Date.now(), sampleCount: samples.length, features };
 }
 
 function tolerance(metric: BaselineMetric, floor: number, madMultiplier = 3) {

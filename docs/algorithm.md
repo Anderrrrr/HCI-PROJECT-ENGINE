@@ -28,6 +28,8 @@ For each feature, calibration stores:
 - `median`: the median of valid samples collected over 10 seconds.
 - `mad`: the median absolute deviation, used to estimate natural movement and landmark noise.
 
+Calibration is performed while the user sits upright and types normally with both hands on the keyboard. This makes ordinary working movement part of the personal baseline instead of treating the transition from resting hands to typing as a posture error.
+
 Each effective threshold is `max(fixed floor, MAD × multiplier)`. This prevents thresholds from approaching zero during an unusually still calibration while allowing more variation when the measured natural movement is larger.
 
 ## Current Thresholds

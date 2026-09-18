@@ -47,6 +47,15 @@ describe("posture assessment", () => {
     const result = assess({ ...upright, shoulderTiltDeg: 5 }, makeBaseline(samples()));
     expect(result.status).toBe("bad");
     expect(result.signals.shoulderTilt.status).toBe("bad");
+    expect(result.shoulderDirection).toBe("left_high");
+    expect(result.reasons).toContain("左肩偏高");
+  });
+
+  it("reports a raised right shoulder using the subject's perspective", () => {
+    const result = assess({ ...upright, shoulderTiltDeg: -5 }, makeBaseline(samples()));
+    expect(result.status).toBe("bad");
+    expect(result.shoulderDirection).toBe("right_high");
+    expect(result.reasons).toContain("右肩偏高");
   });
 
   it("does not score a major camera distance change as bad posture", () => {

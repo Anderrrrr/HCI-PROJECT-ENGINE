@@ -25,6 +25,7 @@ export type Baseline = {
 
 export type IssueKey = "collapse" | "shoulder" | "head";
 export type PostureStatus = "good" | "warning" | "bad";
+export type ShoulderDirection = "level" | "left_high" | "right_high";
 export type SignalKey = "neckCollapse" | "shoulderTilt" | "headOffset" | "headTilt" | "sideAsymmetry";
 export type SignalAssessment = {
   value: number;
@@ -40,6 +41,7 @@ export type Assessment = {
   /** Debug/visualization only. Do not use this field for the posture decision. */
   score: number;
   status: PostureStatus;
+  shoulderDirection: ShoulderDirection;
   signals: Record<SignalKey, SignalAssessment>;
   issues: Record<IssueKey, number>;
   reasons: string[];
@@ -220,20 +222,26 @@ export function assess(features: Features, baseline: Baseline): Assessment {
     ),
   };
   const status = worstStatus(Object.values(signals));
+  const shoulderDirection: ShoulderDirection = signals.shoulderTilt.status === "good"
+    ? "level"
+    : features.shoulderTiltDeg - b.shoulderTiltDeg.median > 0
+      ? "left_high"
+      : "right_high";
   const worstSignal = Object.values(signals).reduce((worst, item) =>
     item.severity > worst.severity ? item : worst,
   );
   const score = positionChanged ? 0 : diagnosticScore(worstSignal.severity, 2);
   const reasons: string[] = [];
   if (signals.neckCollapse.status !== "good") reasons.push("頸肩空間正在縮短");
-  if (signals.shoulderTilt.status !== "good") reasons.push("雙肩有些傾斜");
+  if (shoulderDirection === "left_high") reasons.push("左肩偏高");
+  if (shoulderDirection === "right_high") reasons.push("右肩偏高");
   if (
     signals.headOffset.status !== "good" ||
     signals.headTilt.status !== "good" ||
     signals.sideAsymmetry.status !== "good"
   ) reasons.push("頭部偏離校正位置");
 
-  return { score, status, signals, issues, reasons, positionChanged };
+  return { score, status, shoulderDirection, signals, issues, reasons, positionChanged };
 }
 
 export function smoothFeatures(history: Features[]): Features {

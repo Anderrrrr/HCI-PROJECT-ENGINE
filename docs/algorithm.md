@@ -58,6 +58,8 @@ type SignalAssessment = {
 };
 ```
 
+The assessment also returns `shoulderDirection` as `level`, `left_high`, or `right_high`. Left and right always refer to the user's body, not the mirrored preview image.
+
 整體 `status` 取所有訊號中最嚴重者，不做加權平均：
 
 ```text

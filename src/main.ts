@@ -292,7 +292,13 @@ function updateMetric(key: IssueKey, severity: number, current: number, referenc
   element.dataset.state = severity >= 1 ? "warn" : "good";
   const text = document.querySelector<HTMLElement>(`#${key}Text`)!;
   if (key === "collapse") text.textContent = severity >= 1 ? "比基準明顯縮短" : "維持個人基準";
-  if (key === "shoulder") text.textContent = severity >= 1 ? "肩線出現傾斜" : "左右保持平衡";
+  if (key === "shoulder") {
+    text.textContent = severity < 1
+      ? "左右保持平衡"
+      : current - reference > 0
+        ? "左肩偏高"
+        : "右肩偏高";
+  }
   if (key === "head") text.textContent = severity >= 1 ? "偏離中央位置" : "位置自然穩定";
   element.title = `目前 ${current.toFixed(3)}／基準 ${reference.toFixed(3)}`;
 }

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f1ea" />
+    <title>坐好｜頭頸肩姿勢偵測</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="坐好首頁">
+          <span class="brand-mark">坐</span>
+          <span>坐好</span>
+        </a>
+        <div class="privacy"><span></span>影像只在這台裝置處理</div>
+      </header>
+
+      <main>
+        <section class="intro">
+          <p class="eyebrow">PERSONAL POSTURE CALIBRATION</p>
+          <h1>讓肩頸，回到舒服的位置。</h1>
+          <p class="lede">以你端正坐姿的頭、頸、肩比例作為基準。不是一套硬套在每個人身上的標準。</p>
+        </section>
+
+        <section class="workspace">
+          <div class="camera-card">
+            <div class="camera-stage" id="cameraStage">
+              <video id="video" playsinline muted></video>
+              <canvas id="overlay"></canvas>
+              <div class="camera-placeholder" id="placeholder">
+                <div class="camera-icon" aria-hidden="true"></div>
+                <p>開啟相機，開始建立你的姿勢基準</p>
+              </div>
+              <div class="calibration-overlay" id="calibrationOverlay" hidden>
+                <div class="countdown-ring">
+                  <svg viewBox="0 0 100 100" aria-hidden="true">
+                    <circle class="ring-track" cx="50" cy="50" r="44" />
+                    <circle class="ring-progress" id="ringProgress" cx="50" cy="50" r="44" />
+                  </svg>
+                  <strong id="countdown">10</strong>
+                </div>
+                <p>維持自然端正的坐姿</p>
+                <small id="calibrationHint">正面看向鏡頭，雙肩放鬆</small>
+              </div>
+              <div class="stage-message" id="stageMessage" hidden></div>
+              <div class="status-pill" id="statusPill" hidden>
+                <span></span><b id="statusText">準備中</b>
+              </div>
+            </div>
+            <div class="camera-controls">
+              <button class="primary" id="cameraButton">開啟相機</button>
+              <button class="secondary" id="calibrateButton" disabled>開始 10 秒校正</button>
+            </div>
+          </div>
+
+          <aside class="side-panel">
+            <div class="score-card">
+              <div>
+                <p class="card-label">目前姿勢</p>
+                <h2 id="postureLabel">尚未校正</h2>
+              </div>
+              <div class="score" id="score">—</div>
+              <div class="score-bar"><i id="scoreBar"></i></div>
+              <p class="suggestion" id="suggestion">開啟相機並完成 10 秒校正後，就能開始偵測。</p>
+            </div>
+
+            <div class="metrics-card">
+              <div class="metrics-heading">
+                <p class="card-label">即時觀察</p>
+                <button id="debugToggle" aria-expanded="false">顯示數值</button>
+              </div>
+              <div class="metric" data-metric="collapse">
+                <div class="metric-icon neck-icon"></div>
+                <div><b>頸肩空間</b><small id="collapseText">等待校正</small></div>
+                <span class="metric-dot"></span>
+              </div>
+              <div class="metric" data-metric="shoulder">
+                <div class="metric-icon shoulder-icon"></div>
+                <div><b>肩膀水平</b><small id="shoulderText">等待校正</small></div>
+                <span class="metric-dot"></span>
+              </div>
+              <div class="metric" data-metric="head">
+                <div class="metric-icon head-icon"></div>
+                <div><b>頭部位置</b><small id="headText">等待校正</small></div>
+                <span class="metric-dot"></span>
+              </div>
+              <div class="debug-panel" id="debugPanel" hidden>
+                <dl>
+                  <div><dt>頸部高度／肩寬</dt><dd id="debugNeck">—</dd></div>
+                  <div><dt>肩膀傾斜</dt><dd id="debugShoulder">—</dd></div>
+                  <div><dt>頭部側移</dt><dd id="debugOffset">—</dd></div>
+                  <div><dt>頭部傾斜</dt><dd id="debugTilt">—</dd></div>
+                  <div><dt>推論速度</dt><dd id="debugFps">—</dd></div>
+                </dl>
+              </div>
+            </div>
+
+            <div class="note-card">
+              <span>i</span>
+              <p>這是姿勢提醒工具，不是醫療診斷。短暫移動不會觸發提醒。</p>
+            </div>
+          </aside>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

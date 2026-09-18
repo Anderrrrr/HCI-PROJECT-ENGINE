@@ -76,14 +76,14 @@ function angleDeg(a: { x: number; y: number }, b: { x: number; y: number }) {
 }
 
 export function landmarkQuality(landmarks: Landmark[]): { ok: boolean; reason: string } {
-  if (!landmarks || landmarks.length < 13) return { ok: false, reason: "找不到完整的頭肩骨架" };
+  if (!landmarks || landmarks.length < 13) return { ok: false, reason: "Head and shoulder landmarks not found" };
   const weak = required.some((index) => {
     const point = landmarks[index];
     return !point || (point.visibility ?? 1) < 0.55 || (point.presence ?? 1) < 0.55;
   });
-  if (weak) return { ok: false, reason: "請讓雙耳與雙肩保持在畫面內" };
+  if (weak) return { ok: false, reason: "Keep both ears and shoulders visible" };
   const shoulderWidth = Math.abs(landmarks[IDX.leftShoulder].x - landmarks[IDX.rightShoulder].x);
-  if (shoulderWidth < 0.09) return { ok: false, reason: "請靠近鏡頭，讓肩膀清楚可見" };
+  if (shoulderWidth < 0.09) return { ok: false, reason: "Move closer so both shoulders are clearly visible" };
   return { ok: true, reason: "" };
 }
 
@@ -121,7 +121,7 @@ export function median(values: number[]): number {
 }
 
 export function makeBaseline(samples: Features[]): Baseline {
-  if (samples.length < 10) throw new Error("校正樣本不足");
+  if (samples.length < 10) throw new Error("Not enough calibration samples");
   const keys = Object.keys(samples[0]) as (keyof Features)[];
   const features = {} as Record<keyof Features, BaselineMetric>;
   for (const key of keys) {
@@ -232,14 +232,14 @@ export function assess(features: Features, baseline: Baseline): Assessment {
   );
   const score = positionChanged ? 0 : diagnosticScore(worstSignal.severity, 2);
   const reasons: string[] = [];
-  if (signals.neckCollapse.status !== "good") reasons.push("頸肩空間正在縮短");
-  if (shoulderDirection === "left_high") reasons.push("左肩偏高");
-  if (shoulderDirection === "right_high") reasons.push("右肩偏高");
+  if (signals.neckCollapse.status !== "good") reasons.push("Neck and shoulder space is collapsing");
+  if (shoulderDirection === "left_high") reasons.push("Left shoulder is too high");
+  if (shoulderDirection === "right_high") reasons.push("Right shoulder is too high");
   if (
     signals.headOffset.status !== "good" ||
     signals.headTilt.status !== "good" ||
     signals.sideAsymmetry.status !== "good"
-  ) reasons.push("頭部偏離校正位置");
+  ) reasons.push("Head position is outside the calibrated range");
 
   return { score, status, shoulderDirection, signals, issues, reasons, positionChanged };
 }

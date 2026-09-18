@@ -32,6 +32,7 @@ const calibrationHint = document.querySelector<HTMLElement>("#calibrationHint")!
 const countdown = document.querySelector<HTMLElement>("#countdown")!;
 const ringProgress = document.querySelector<SVGCircleElement>("#ringProgress")!;
 const stageMessage = document.querySelector<HTMLElement>("#stageMessage")!;
+const postureAlert = document.querySelector<HTMLElement>("#postureAlert")!;
 const statusPill = document.querySelector<HTMLElement>("#statusPill")!;
 const statusText = document.querySelector<HTMLElement>("#statusText")!;
 const postureLabel = document.querySelector<HTMLElement>("#postureLabel")!;
@@ -88,7 +89,7 @@ async function createLandmarker(delegate: "GPU" | "CPU") {
 
 async function initializeModel() {
   if (poseLandmarker) return;
-  setStageMessage("正在載入骨架模型…", true);
+  setStageMessage("LOADING POSE MODEL…", true);
   try {
     try {
       poseLandmarker = await createLandmarker("GPU");
@@ -105,7 +106,7 @@ async function initializeModel() {
 
 async function startCamera() {
   cameraButton.disabled = true;
-  cameraButton.textContent = "正在開啟…";
+  cameraButton.textContent = "STARTING…";
   try {
     await initializeModel();
     stream = await navigator.mediaDevices.getUserMedia({
@@ -123,15 +124,15 @@ async function startCamera() {
     placeholder.hidden = true;
     statusPill.hidden = false;
     calibrateButton.disabled = false;
-    calibrateButton.textContent = baseline ? "重新校正" : "開始 10 秒校正";
-    cameraButton.textContent = "關閉相機";
+    calibrateButton.textContent = baseline ? "RECALIBRATE" : "CALIBRATE FOR 10 SECONDS";
+    cameraButton.textContent = "STOP CAMERA";
     cameraButton.disabled = false;
     cameraButton.classList.add("is-stop");
     renderLoop();
   } catch (error) {
     console.error(error);
     setStageMessage(cameraErrorMessage(error), true);
-    cameraButton.textContent = "重試開啟相機";
+    cameraButton.textContent = "RETRY CAMERA";
     cameraButton.disabled = false;
   }
 }
@@ -145,7 +146,7 @@ function stopCamera() {
   calibrateButton.disabled = true;
   calibrating = false;
   calibrationOverlay.hidden = true;
-  cameraButton.textContent = "開啟相機";
+  cameraButton.textContent = "START CAMERA";
   cameraButton.classList.remove("is-stop");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
@@ -161,16 +162,17 @@ function startCalibration() {
   badSince = null;
   calibrationOverlay.hidden = false;
   calibrateButton.disabled = true;
-  postureLabel.textContent = "校正中";
+  postureLabel.textContent = "CALIBRATING";
   scoreElement.textContent = "—";
-  updateCalibrationOverlay(0, "正面看向鏡頭，雙肩放鬆");
+  updateCalibrationOverlay(0, "Face the camera and relax both shoulders");
+  emitEngineState({ phase: "calibrating", message: "Calibration started" });
 }
 
 function finishCalibration() {
   if (calibrationSamples.length < 45) {
     calibrationStartedAt = performance.now();
     calibrationSamples = [];
-    updateCalibrationOverlay(0, "有效畫面不足，請保持雙耳與雙肩清楚可見");
+    updateCalibrationOverlay(0, "Not enough valid frames. Keep both ears and shoulders visible.");
     return;
   }
   baseline = makeBaseline(calibrationSamples);
@@ -178,9 +180,10 @@ function finishCalibration() {
   calibrating = false;
   calibrationOverlay.hidden = true;
   calibrateButton.disabled = false;
-  calibrateButton.textContent = "重新校正";
-  postureLabel.textContent = "校正完成";
-  suggestion.textContent = `已從 ${baseline.sampleCount} 個有效畫面建立個人基準。現在可以自然使用電腦。`;
+  calibrateButton.textContent = "RECALIBRATE";
+  postureLabel.textContent = "CALIBRATED";
+  suggestion.textContent = `Baseline created from ${baseline.sampleCount} valid frames.`;
+  emitEngineState({ phase: "ready", message: "Calibration complete" });
 }
 
 function renderLoop() {
@@ -206,7 +209,7 @@ function renderLoop() {
 
 function processLandmarks(landmarks: Landmark[] | undefined, now: number) {
   if (!landmarks) {
-    showUnavailable("請坐到鏡頭前，讓頭部與雙肩出現在畫面中");
+    showUnavailable("Move into frame and keep your head and both shoulders visible");
     return;
   }
   const quality = landmarkQuality(landmarks);
@@ -226,20 +229,21 @@ function processLandmarks(landmarks: Landmark[] | undefined, now: number) {
   if (calibrating) {
     calibrationSamples.push(features);
     const elapsed = now - calibrationStartedAt;
-    updateCalibrationOverlay(elapsed / CALIBRATION_MS, "很好，維持自然呼吸");
+    updateCalibrationOverlay(elapsed / CALIBRATION_MS, "Hold still and breathe normally");
     if (elapsed >= CALIBRATION_MS) finishCalibration();
     return;
   }
 
   if (!baseline) {
-    setStatus("ready", "可以開始校正");
-    postureLabel.textContent = "等待校正";
+    setStatus("ready", "READY TO CALIBRATE");
+    postureLabel.textContent = "NOT CALIBRATED";
+    postureAlert.hidden = true;
     return;
   }
 
   const assessment = assess(smoothed, baseline);
   if (assessment.positionChanged) {
-    showUnavailable("你與鏡頭的距離和校正時不同，請回到原本位置或重新校正");
+    showUnavailable("Camera distance changed. Return to the calibrated position or recalibrate.");
     badSince = null;
     candidateStatus = null;
     return;
@@ -269,18 +273,21 @@ function updateAssessment(assessment: Assessment, features: Features) {
   scoreBar.style.background = score >= 80 ? "var(--good)" : score >= 60 ? "var(--warn)" : "var(--bad)";
 
   if (assessment.status === "good") {
-    setStatus("good", "坐姿穩定");
-    postureLabel.textContent = "姿勢很好";
-    suggestion.textContent = "頭、頸、肩仍在你的舒適基準範圍內。";
+    setStatus("good", "POSTURE OK");
+    postureLabel.textContent = "GOOD";
+    suggestion.textContent = "All signals are inside the calibrated range.";
   } else if (assessment.status === "warning") {
-    setStatus("warn", "稍微調整一下");
-    postureLabel.textContent = "有些偏離";
-    suggestion.textContent = assessment.reasons[0] ?? "放鬆肩膀，讓頭部回到中央。";
+    setStatus("warn", "WARNING");
+    postureLabel.textContent = "WARNING";
+    suggestion.textContent = assessment.reasons[0] ?? "Return to the calibrated posture.";
   } else {
-    setStatus("bad", "需要調整");
-    postureLabel.textContent = "姿勢偏離";
-    suggestion.textContent = assessment.reasons.join("；") || "請回到校正時的自然坐姿。";
+    setStatus("bad", "BAD POSTURE");
+    postureLabel.textContent = "BAD";
+    suggestion.textContent = assessment.reasons.join("; ") || "Return to the calibrated posture.";
   }
+
+  updatePostureAlert(assessment);
+  emitEngineState({ phase: "tracking", assessment, features });
 
   updateMetric("collapse", assessment.issues.collapse, features.neckRatio, baseline!.features.neckRatio.median);
   updateMetric("shoulder", assessment.issues.shoulder, features.shoulderTiltDeg, baseline!.features.shoulderTiltDeg.median);
@@ -291,22 +298,24 @@ function updateMetric(key: IssueKey, severity: number, current: number, referenc
   const element = document.querySelector<HTMLElement>(`[data-metric="${key}"]`)!;
   element.dataset.state = severity >= 1 ? "warn" : "good";
   const text = document.querySelector<HTMLElement>(`#${key}Text`)!;
-  if (key === "collapse") text.textContent = severity >= 1 ? "比基準明顯縮短" : "維持個人基準";
+  if (key === "collapse") text.textContent = severity >= 1 ? "SPACE REDUCED" : "NORMAL";
   if (key === "shoulder") {
     text.textContent = severity < 1
-      ? "左右保持平衡"
+      ? "LEVEL"
       : current - reference > 0
-        ? "左肩偏高"
-        : "右肩偏高";
+        ? "LEFT SHOULDER HIGH"
+        : "RIGHT SHOULDER HIGH";
   }
-  if (key === "head") text.textContent = severity >= 1 ? "偏離中央位置" : "位置自然穩定";
-  element.title = `目前 ${current.toFixed(3)}／基準 ${reference.toFixed(3)}`;
+  if (key === "head") text.textContent = severity >= 1 ? "OUTSIDE BASELINE" : "NORMAL";
+  element.title = `Current ${current.toFixed(3)} / baseline ${reference.toFixed(3)}`;
 }
 
 function showUnavailable(message: string) {
-  setStatus("neutral", "暫時無法判斷");
+  setStatus("neutral", "UNAVAILABLE");
+  postureAlert.hidden = true;
+  emitEngineState({ phase: "unavailable", message });
   if (!calibrating) {
-    postureLabel.textContent = "調整畫面位置";
+    postureLabel.textContent = "NO READING";
     suggestion.textContent = message;
     scoreElement.textContent = "—";
     scoreBar.style.width = "0";
@@ -370,6 +379,42 @@ function setStageMessage(message: string, visible: boolean) {
   stageMessage.hidden = !visible;
 }
 
+type PublicEngineState = {
+  phase: "calibrating" | "ready" | "tracking" | "unavailable";
+  message?: string;
+  assessment?: Assessment;
+  features?: Features;
+  timestamp?: number;
+};
+
+declare global {
+  interface Window {
+    postureEngineState?: PublicEngineState;
+  }
+}
+
+function emitEngineState(state: PublicEngineState) {
+  const detail = { ...state, timestamp: Date.now() };
+  window.postureEngineState = detail;
+  window.dispatchEvent(new CustomEvent("posturechange", { detail }));
+}
+
+function updatePostureAlert(assessment: Assessment) {
+  if (assessment.status === "good") {
+    postureAlert.hidden = true;
+    return;
+  }
+  let message = assessment.status === "bad" ? "POSTURE OUTSIDE BASELINE" : "POSTURE WARNING";
+  if (assessment.shoulderDirection === "left_high") message = "LEFT SHOULDER TOO HIGH";
+  else if (assessment.shoulderDirection === "right_high") message = "RIGHT SHOULDER TOO HIGH";
+  else if (assessment.signals.neckCollapse.status !== "good") message = "NECK / SHOULDER SPACE TOO SMALL";
+  else if (assessment.signals.headTilt.status !== "good") message = "HEAD TILT TOO LARGE";
+  else if (assessment.signals.headOffset.status !== "good") message = "HEAD TOO FAR OFF CENTER";
+  postureAlert.textContent = message;
+  postureAlert.dataset.level = assessment.status;
+  postureAlert.hidden = false;
+}
+
 function updateDebug(features: Features) {
   debugNeck.textContent = features.neckRatio.toFixed(3);
   debugShoulder.textContent = `${features.shoulderTiltDeg.toFixed(1)}°`;
@@ -388,9 +433,9 @@ function loadBaseline(): Baseline | null {
 }
 
 function cameraErrorMessage(error: unknown) {
-  if (error instanceof DOMException && error.name === "NotAllowedError") return "相機權限被拒絕。請允許此網站使用相機後再試一次。";
-  if (error instanceof DOMException && error.name === "NotFoundError") return "找不到可用的相機。";
-  return "無法啟動相機或模型，請重新整理後再試一次。";
+  if (error instanceof DOMException && error.name === "NotAllowedError") return "Camera permission denied. Allow camera access and retry.";
+  if (error instanceof DOMException && error.name === "NotFoundError") return "No camera was found.";
+  return "Could not start the camera or pose model. Reload and retry.";
 }
 
 cameraButton.addEventListener("click", () => (stream ? stopCamera() : void startCamera()));
@@ -398,15 +443,15 @@ calibrateButton.addEventListener("click", startCalibration);
 debugToggle.addEventListener("click", () => {
   const willShow = debugPanel.hidden;
   debugPanel.hidden = !willShow;
-  debugToggle.textContent = willShow ? "隱藏數值" : "顯示數值";
+  debugToggle.textContent = willShow ? "HIDE VALUES" : "SHOW VALUES";
   debugToggle.setAttribute("aria-expanded", String(willShow));
 });
 window.addEventListener("resize", resizeCanvas);
 window.addEventListener("beforeunload", stopCamera);
 
 if (baseline) {
-  calibrateButton.textContent = "重新校正";
-  suggestion.textContent = "已找到上次的個人基準。開啟相機即可開始，或選擇重新校正。";
+  calibrateButton.textContent = "RECALIBRATE";
+  suggestion.textContent = "A saved baseline was found. Start the camera or recalibrate.";
 }
 
 // Keep the imported MediaPipe type checked by TypeScript when package declarations evolve.

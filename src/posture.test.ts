@@ -33,7 +33,7 @@ describe("posture assessment", () => {
   it("detects a collapsed neck-to-shoulder ratio", () => {
     const result = assess({ ...upright, neckRatio: 0.36 }, makeBaseline(samples()));
     expect(result.status).toBe("bad");
-    expect(result.reasons).toContain("頸肩空間正在縮短");
+    expect(result.reasons).toContain("Neck and shoulder space is collapsing");
   });
 
   it("flags a five percent neck collapse even when all other signals are perfect", () => {
@@ -48,14 +48,14 @@ describe("posture assessment", () => {
     expect(result.status).toBe("bad");
     expect(result.signals.shoulderTilt.status).toBe("bad");
     expect(result.shoulderDirection).toBe("left_high");
-    expect(result.reasons).toContain("左肩偏高");
+    expect(result.reasons).toContain("Left shoulder is too high");
   });
 
   it("reports a raised right shoulder using the subject's perspective", () => {
     const result = assess({ ...upright, shoulderTiltDeg: -5 }, makeBaseline(samples()));
     expect(result.status).toBe("bad");
     expect(result.shoulderDirection).toBe("right_high");
-    expect(result.reasons).toContain("右肩偏高");
+    expect(result.reasons).toContain("Right shoulder is too high");
   });
 
   it("does not score a major camera distance change as bad posture", () => {

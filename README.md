@@ -28,6 +28,10 @@ The engine normalizes head, ear, and shoulder measurements by shoulder width. A 
 
 See [docs/algorithm.md](docs/algorithm.md) for the current formulas, thresholds, and output format.
 
+## UI Integration
+
+The included page is only a debug view. A production UI can read `window.postureEngineState` or subscribe to the browser's `posturechange` event. This keeps the posture engine independent from any Figma-derived interface.
+
 ## Disclaimer
 
 This is an HCI prototype and not a medical diagnostic tool.

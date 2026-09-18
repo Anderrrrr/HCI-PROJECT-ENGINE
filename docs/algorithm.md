@@ -1,10 +1,10 @@
-# 頭頸肩姿勢引擎
+# Head, Neck, and Shoulder Posture Engine
 
-這個模組的主要輸入是 MediaPipe Pose Landmarker 的 landmarks，主要輸出是結構化的 `Assessment`。UI 不應自行用總分推斷姿勢，而應直接讀取 `status` 與各個 `signals`。
+The engine receives MediaPipe Pose Landmarker landmarks and returns a structured `Assessment`. Consumers should use `status` and `signals` directly. The numerical `score` is only a continuous debugging aid and must not be used as the posture decision.
 
-## 輸入特徵
+## Input Features
 
-所有長度先換算成影像像素座標，再以肩寬正規化：
+Distances are converted to image pixels and normalized by shoulder width:
 
 ```text
 shoulderCenter = midpoint(leftShoulder, rightShoulder)
@@ -19,32 +19,32 @@ sideAsymmetry  = distance(leftEar, leftShoulder) / shoulderWidth
                - distance(rightEar, rightShoulder) / shoulderWidth
 ```
 
-`neckRatio` 下降代表頭與肩膀間的垂直空間縮短。它可能來自駝背、縮脖或聳肩，因此引擎將它命名為「頸肩塌縮」，不宣稱是醫療上的駝背診斷。
+A decrease in `neckRatio` means the visible vertical space between the head and shoulders has become smaller. This can be caused by slouching, shrugging, or retracting the neck, so the engine calls it neck/shoulder collapse rather than making a medical diagnosis.
 
-## 個人基準
+## Personal Baseline
 
-校正期間每個特徵保存：
+For each feature, calibration stores:
 
-- `median`：10 秒有效樣本的中位數。
-- `mad`：與中位數差值的中位數，用來估計自然晃動與偵測雜訊。
+- `median`: the median of valid samples collected over 10 seconds.
+- `mad`: the median absolute deviation, used to estimate natural movement and landmark noise.
 
-單一特徵的實際門檻為 `max(固定下限, MAD × 倍率)`，避免校正畫面極度穩定時門檻趨近零，也避免自然晃動較大時頻繁誤報。
+Each effective threshold is `max(fixed floor, MAD × multiplier)`. This prevents thresholds from approaching zero during an unusually still calibration while allowing more variation when the measured natural movement is larger.
 
-## 目前門檻
+## Current Thresholds
 
-| 訊號 | 警戒 | 不良 |
+| Signal | Warning | Bad |
 |---|---:|---:|
-| 頸肩塌縮 | 基準的 4.5%，至少 0.020 | 基準的 9%，至少 0.040 |
-| 肩膀傾斜 | 2° | 4.5° |
-| 頭部水平側移 | 0.035 個肩寬 | 0.070 個肩寬 |
-| 頭部傾斜 | 3° | 6° |
-| 左右頸肩不對稱 | 0.045 個肩寬 | 0.090 個肩寬 |
+| Neck/shoulder collapse | 4.5% of baseline, minimum 0.020 | 9% of baseline, minimum 0.040 |
+| Shoulder tilt | 2° | 4.5° |
+| Horizontal head offset | 0.035 shoulder widths | 0.070 shoulder widths |
+| Head tilt | 3° | 6° |
+| Left/right neck asymmetry | 0.045 shoulder widths | 0.090 shoulder widths |
 
-警戒門檻至少為 `3 × MAD`，不良門檻至少為 `6 × MAD`。與校正時相比，肩寬變化超過 25% 時標記為攝影機位置改變，不輸出姿勢好壞。
+Warning thresholds are at least `3 × MAD`; bad thresholds are at least `6 × MAD`. A shoulder-width change greater than 25% from calibration is treated as a camera-distance change, so no posture decision is returned.
 
-## 決策規則
+## Decision Rule
 
-每個訊號獨立輸出：
+Each signal is evaluated independently:
 
 ```ts
 type SignalAssessment = {
@@ -53,26 +53,40 @@ type SignalAssessment = {
   delta: number;
   warningThreshold: number;
   badThreshold: number;
-  severity: number; // 1 = 警戒門檻，2 = 不良門檻
+  severity: number; // 1 = warning threshold; 2 = bad threshold
   status: "good" | "warning" | "bad";
 };
 ```
 
-The assessment also returns `shoulderDirection` as `level`, `left_high`, or `right_high`. Left and right always refer to the user's body, not the mirrored preview image.
-
-整體 `status` 取所有訊號中最嚴重者，不做加權平均：
+The overall status is the worst individual signal; signals are never averaged together:
 
 ```text
-任一訊號 bad     → 整體 bad
-否則任一 warning → 整體 warning
-否則              → 整體 good
+Any bad signal     -> overall bad
+Else any warning  -> overall warning
+Else              -> overall good
 ```
 
-`score` 僅為開發時的連續除錯值，顯示層不得使用它決定狀態。即時畫面採最近 12 個有效樣本的中位數；`warning` 持續 0.9 秒、`bad` 持續 1.5 秒後才確認，避免單幀抖動。
+`shoulderDirection` is `level`, `left_high`, or `right_high`. Left and right always refer to the user's body, not the mirrored preview.
 
-## 程式入口
+The live pipeline uses the median of the latest 12 valid samples. A warning must persist for 0.9 seconds and a bad result for 1.5 seconds before it is confirmed.
 
-- `extractFeatures(landmarks, width, height)`：骨架轉為正規化特徵。
-- `makeBaseline(samples)`：建立個人校正基準。
-- `assess(features, baseline)`：輸出每個訊號與整體判斷。
-- `smoothFeatures(history)`：處理短期骨架抖動。
+## Integration Output
+
+The browser test harness publishes the latest result in two ways:
+
+```js
+window.postureEngineState
+
+window.addEventListener("posturechange", (event) => {
+  console.log(event.detail);
+});
+```
+
+The event detail includes `phase`, `timestamp`, and, while tracking, `assessment` and normalized `features`. A production UI can subscribe to this event without depending on the debug page markup or styles.
+
+## Code Entry Points
+
+- `extractFeatures(landmarks, width, height)`: converts landmarks into normalized features.
+- `makeBaseline(samples)`: builds a personal calibration baseline.
+- `assess(features, baseline)`: returns signal-level and overall decisions.
+- `smoothFeatures(history)`: reduces short-term landmark jitter.
